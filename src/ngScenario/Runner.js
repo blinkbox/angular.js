@@ -19,7 +19,11 @@ angular.scenario.Runner = function($window) {
     ddescribe: this.ddescribe,
     xdescribe: angular.noop,
     beforeEach: this.beforeEach,
-    afterEach: this.afterEach
+    afterEach: this.afterEach,
+
+    getRootDescribe: function() {
+      return this.rootDescribe;
+    }
   };
   angular.forEach(this.api, angular.bind(this, function(fn, key) {
     this.$window[key] = angular.bind(this, fn);

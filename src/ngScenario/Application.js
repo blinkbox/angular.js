@@ -69,15 +69,41 @@ angular.scenario.Application.prototype.navigateTo = function(url, loadFn, errorF
         var $window = self.getWindow_();
 
         if ($window.angular) {
+
+          var resumeBootstrap = function(extraModules){
+            if(!$window.angular.resumeBootstrap)
+            {
+              $window.setTimeout(function(){
+                resumeBootstrap(extraModules);
+              }, 100);
+              return;
+            }
+
+            var $injector = $window.angular.resumeBootstrap(extraModules);
+
+            self.$rootElement = _jQuery($injector.get('$rootElement'));
+            self.$rootElement.injector = function() {
+              return $injector;
+            };
+            self.executeAction(loadFn);
+            self.extraDecorators = null;
+          };
+
           // Disable animations
-          $window.angular.resumeBootstrap([['$provide', function($provide) {
+          var overrideModules = [['$provide', function($provide) {
             return ['$animate', function($animate) {
               $animate.enabled(false);
             }];
-          }]]);
-        }
+          }]];
 
-        self.executeAction(loadFn);
+          if(angular.isArray(self.extraDecorators)){
+            overrideModules = overrideModules.concat(self.extraDecorators);
+          }
+
+          resumeBootstrap(overrideModules);
+        } else {
+          self.executeAction(loadFn);
+        }
       } catch (e) {
         errorFn(e);
       }
@@ -105,18 +131,34 @@ angular.scenario.Application.prototype.executeAction = function(action) {
   if (!$window.angular) {
     return action.call(this, $window, _jQuery($window.document));
   }
-  angularInit($window.document, function(element) {
-    var $injector = $window.angular.element(element).injector();
-    var $element = _jQuery(element);
 
-    $element.injector = function() {
-      return $injector;
-    };
+  if(self.$rootElement){
+    var $element = self.$rootElement;
+    var $injector = $element.injector();
 
     $injector.invoke(function($browser){
       $browser.notifyWhenNoOutstandingRequests(function() {
         action.call(self, $window, $element);
       });
     });
+  }
+};
+
+/**
+ * Sets an array of decorators that will be registered with the application being
+ * tested during bootstrap. Calling this after the tested application has been
+ * bootstrapped will register them for the use the next time the application is
+ * bootstrapped.
+ *
+ * @param {Array} decorators An array of decorators. [['serviceName', function($delegate){}]]
+ */
+angular.scenario.Application.prototype.addDecorators = function(decorators) {
+  var self = this;
+  self.extraDecorators = this.extraDecorators || [];
+
+  angular.forEach(decorators, function(decorator){
+    self.extraDecorators.push(['$provide', function ($provide) {
+      $provide.decorator(decorator[0], decorator[1]);
+    }]);
   });
 };

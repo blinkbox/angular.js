@@ -50,6 +50,11 @@ describe("angular.scenario.dsl", function() {
       $window.location = url;
       callback();
     };
+    $root.application.$rootElement = _jQuery($window.document);
+    $root.application.$rootElement.injector = function(){
+      return $injector;
+    };
+
     // Just use the real one since it delegates to this.addFuture
     $root.addFutureAction = angular.scenario.
       SpecRunner.prototype.addFutureAction;
@@ -780,6 +785,17 @@ describe("angular.scenario.dsl", function() {
         chain.enter('foo');
         expect($root.futureError).toMatch(/did not match/);
       });
+    });
+  });
+
+  describe('setDecorators', function(){
+    it('should set the extra decorators on the application', function(){
+      var spy = spyOn($root.application, 'addDecorators').andCallThrough(),
+        decorators = [['myService', function ($delegate) { }]];
+
+      $root.dsl.addDecorators(decorators);
+
+      expect(spy).toHaveBeenCalledOnceWith(decorators);
     });
   });
 });

@@ -16,6 +16,8 @@
  * This is very simple implementation of testing browser's features.
  */
 function $SnifferProvider() {
+  var historyPushStateUpdatesURL;
+
   this.$get = ['$window', '$document', function($window, $document) {
     var eventSupport = {},
         android =
@@ -29,6 +31,25 @@ function $SnifferProvider() {
         transitions = false,
         animations = false,
         match;
+
+    // Detect this issue by checking whether browser history.pushState changes URL
+    // rather then relying on browser userAgent string.
+    if(historyPushStateUpdatesURL === undefined){
+        historyPushStateUpdatesURL = !!($window.history && $window.history.pushState);
+
+      if(historyPushStateUpdatesURL){
+        var urlToken = '__ANGULARJS__';
+        var originalHref = $window.location.href;
+        var originalTitle = $window.document.title;
+
+        $window.history.pushState(null, '', urlToken);
+        historyPushStateUpdatesURL = $window.location.href.indexOf(urlToken) > -1;
+
+        if (historyPushStateUpdatesURL) {
+          $window.history.replaceState(null, originalTitle, originalHref);
+        }
+      }
+    }
 
     if (bodyStyle) {
       for(var prop in bodyStyle) {
@@ -54,18 +75,18 @@ function $SnifferProvider() {
 
 
     return {
-      // Android has history.pushState, but it does not update location correctly
-      // so let's not use the history API at all.
-      // http://code.google.com/p/android/issues/detail?id=17471
-      // https://github.com/angular/angular.js/issues/904
+        // Android has history.pushState, but it does not update location correctly
+        // so let's not use the history API at all.
+        // http://code.google.com/p/android/issues/detail?id=17471
+        // https://github.com/angular/angular.js/issues/904
 
-      // older webkit browser (533.9) on Boxee box has exactly the same problem as Android has
-      // so let's not use the history API also
-      // We are purposefully using `!(android < 4)` to cover the case when `android` is undefined
-      // jshint -W018
-      history: !!($window.history && $window.history.pushState && !(android < 4) && !boxee),
-      // jshint +W018
-      hashchange: 'onhashchange' in $window &&
+        // older webkit browser (533.9) on Boxee box has exactly the same problem as Android has
+        // so let's not use the history API also
+        // We are purposefully using `!(android < 4)` to cover the case when `android` is undefined
+        // jshint -W018
+        history: !!(historyPushStateUpdatesURL && !(android < 4) && !boxee),
+        // jshint +W018
+        hashchange: 'onhashchange' in $window &&
                   // IE8 compatible mode lies
                   (!documentMode || documentMode > 7),
       hasEvent: function(event) {
